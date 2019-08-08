@@ -1,4 +1,4 @@
-# psp-gatekeeper-policies
+# pod-security-policies
 
 This repo contains common policies needed in Pod Security Policy but implemented as Constraints and Constraint Templates with Gatekeeper.
 
