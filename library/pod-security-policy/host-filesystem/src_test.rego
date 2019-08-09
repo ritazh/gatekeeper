@@ -120,6 +120,7 @@ input_parameters_in_list = {
 input_parameters_in_list_writable = {
     "allowedHostPaths": [
     {
+        "readOnly": false,
         "pathPrefix": "/tmp"
     },
     {

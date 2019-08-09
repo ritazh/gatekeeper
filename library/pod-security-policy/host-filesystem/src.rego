@@ -14,7 +14,7 @@ input_hostpath_allowed(volume) {
 input_hostpath_allowed(volume) {
     allowedHostPath := input.parameters.allowedHostPaths[_]
     path_matches(allowedHostPath.pathPrefix, volume.hostPath.path)
-    not allowedHostPath.readOnly
+    not allowedHostPath.readOnly == true
 }
 
 input_hostpath_allowed(volume) {
