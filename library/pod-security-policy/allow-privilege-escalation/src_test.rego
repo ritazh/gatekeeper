@@ -10,11 +10,11 @@ test_input_container_privilege_escalation_not_allowed {
     results := violation with input as input
     count(results) == 1
 }
-# test_input_container_many_not_privilege_escalation_allowed {
-#     input := { "review": input_review_many}
-#     results := violation with input as input
-#     count(results) == 2
-# }
+test_input_container_many_not_privilege_escalation_allowed {
+    input := { "review": input_review_many}
+    results := violation with input as input
+    count(results) == 2
+}
 test_input_container_many_mixed_privilege_escalation_not_allowed {
     input := { "review": input_review_many_mixed}
     results := violation with input as input
