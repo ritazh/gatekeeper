@@ -25,6 +25,11 @@ test_input_no_fsgroup_MustRunAs_not_allowed {
     results := violation with input as input
     count(results) > 0
 }
+test_input_securitycontext_no_fsgroup_MustRunAs_not_allowed {
+    input := { "review": input_review_with_securitycontext_no_fsgroup, "parameters": input_parameters_in_list_mustrunas}
+    results := violation with input as input
+    count(results) > 0
+}
 test_input_fsgroup_MayRunAs_allowed {
     input := { "review": input_review_with_fsgroup, "parameters": input_parameters_in_list_mayrunas}
     results := violation with input as input
@@ -35,9 +40,13 @@ test_input_fsgroup_MayRunAs_not_allowed {
     results := violation with input as input
     count(results) > 0
 }
-
-test_input_no_fsgroup_MayRunAs_not_allowed {
+test_input_no_fsgroup_MayRunAs_allowed {
     input := { "review": input_review, "parameters": input_parameters_in_list_mayrunas}
+    results := violation with input as input
+    count(results) == 0
+}
+test_input_securitycontext_no_fsgroup_MayRunAs_allowed {
+    input := { "review": input_review_with_securitycontext_no_fsgroup, "parameters": input_parameters_in_list_mayrunas}
     results := violation with input as input
     count(results) == 0
 }
@@ -62,6 +71,21 @@ input_review_with_fsgroup = {
         "spec": {
             "securityContext": {
               "fsGroup": 2000
+            },
+            "containers": input_containers_one,
+            "volumes": input_volumes
+      }
+    }
+}
+
+input_review_with_securitycontext_no_fsgroup = {
+    "object": {
+        "metadata": {
+            "name": "nginx"
+        },
+        "spec": {
+            "securityContext": {
+              "runAsUser": "1000"
             },
             "containers": input_containers_one,
             "volumes": input_volumes

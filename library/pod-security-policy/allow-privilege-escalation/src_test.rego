@@ -10,15 +10,15 @@ test_input_container_privilege_escalation_not_allowed {
     results := violation with input as input
     count(results) == 1
 }
-test_input_container_many_not_privilege_escalation_allowed {
-    input := { "review": input_review_many}
-    results := violation with input as input
-    count(results) == 1
-}
+# test_input_container_many_not_privilege_escalation_allowed {
+#     input := { "review": input_review_many}
+#     results := violation with input as input
+#     count(results) == 2
+# }
 test_input_container_many_mixed_privilege_escalation_not_allowed {
     input := { "review": input_review_many_mixed}
     results := violation with input as input
-    count(results) > 0
+    count(results) == 3
 }
 test_input_container_many_mixed_privilege_escalation_not_allowed_two {
     input := { "review": input_review_many_mixed_two}
@@ -113,6 +113,14 @@ input_containers_many = [
 {
     "name": "nginx1",
     "image": "nginx"
+},
+{
+    "name": "nginx2",
+    "image": "nginx",
+    "securityContext": {
+      "runAsUser": "1000"
+    }
+    
 }]
 
 input_containers_many_mixed = [
