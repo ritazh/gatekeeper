@@ -10,6 +10,11 @@ test_input_hostpath_allowed_readonly {
     results := violation with input as input
     count(results) == 0
 }
+test_input_hostpath_not_allowed_writable {
+    input := { "review": input_review_writable, "parameters": input_parameters_in_list}
+    results := violation with input as input
+    count(results) = 1
+}
 test_input_hostpath_allowed_not_writable {
     input := { "review": input_review, "parameters": input_parameters_in_list}
     results := violation with input as input
@@ -38,6 +43,18 @@ input_review = {
     }
 }
 
+input_review_writable = {
+    "object": {
+        "metadata": {
+            "name": "nginx"
+        },
+        "spec": {
+            "containers": input_containers_writable,
+            "volumes": input_volumes
+      }
+    }
+}
+
 input_review_many = {
     "object": {
         "metadata": {
@@ -58,6 +75,18 @@ input_containers_one = [
     {
         "mountPath": "/cache",
         "name": "cache-volume"
+    }]
+}]
+
+input_containers_writable = [
+{
+    "name": "nginx",
+    "image": "nginx",
+    "volumeMounts":[
+    {
+        "mountPath": "/cache",
+        "name": "cache-volume",
+        "readOnly": false
     }]
 }]
 
@@ -120,7 +149,6 @@ input_parameters_in_list = {
 input_parameters_in_list_writable = {
     "allowedHostPaths": [
     {
-        "readOnly": false,
         "pathPrefix": "/tmp"
     },
     {

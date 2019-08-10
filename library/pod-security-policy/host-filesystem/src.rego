@@ -1,4 +1,4 @@
- package k8spsphostfilesystem
+package k8spsphostfilesystem
 
 violation[{"msg": msg, "details": {}}] {
     volume := input_hostpath_volumes[_]
