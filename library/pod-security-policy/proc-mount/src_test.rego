@@ -113,6 +113,13 @@ input_containers_many = [
 {
     "name": "nginx1",
     "image": "nginx"
+},
+{
+    "name": "nginx2",
+    "image": "nginx",
+    "securityContext": {
+      "runAsUser": "1000"
+    }
 }]
 
 input_containers_many_mixed = [
