@@ -18,7 +18,7 @@ test_input_container_many_mixed_readonlyrootfilesystem_not_allowed {
 test_input_container_many_mixed_readonlyrootfilesystem_not_allowed_two {
     input := { "review": input_review_many_mixed_two}
     results := violation with input as input
-    count(results) == 1
+    count(results) == 3
 }
 
 input_review = {
@@ -111,5 +111,16 @@ input_containers_many_mixed = [
     "image": "nginx",
     "securityContext": {
       "readOnlyRootFilesystem": true
+    }
+},
+{
+    "name": "nginx2",
+    "image": "nginx"
+},
+{
+    "name": "nginx3",
+    "image": "nginx",
+    "securityContext": {
+      "runAsUser": "1000"
     }
 }]

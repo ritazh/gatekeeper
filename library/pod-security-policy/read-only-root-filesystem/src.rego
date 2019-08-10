@@ -10,8 +10,7 @@ input_read_only_root_fs(c) {
     not has_field(c, "securityContext")
 }
 input_read_only_root_fs(c) {
-    has_field(c, "securityContext")
-    not has_field(c.securityContext, "readOnlyRootFilesystem")
+    not c.securityContext.readOnlyRootFilesystem == true
 }
 
 input_containers[c] {
