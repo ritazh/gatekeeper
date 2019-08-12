@@ -1,32 +1,37 @@
 package k8spsphostnetworkingports
 
-test_input_no_hostnetwork_no_port_is_allowed { 
-    input := { "review": input_review, "parameters": input_parameters_ports} 
+test_input_no_hostnetwork_no_port_is_allowed {
+    input := { "review": input_review, "parameters": input_parameters_ports}
     results := violation with input as input
     count(results) == 0
 }
-test_input_no_hostnetwork_allowed_ports_is_allowed { 
-    input := { "review": input_review_no_hostnetwork_allowed_ports, "parameters": input_parameters_ports} 
+test_input_no_hostnetwork_allowed_ports_is_allowed {
+    input := { "review": input_review_no_hostnetwork_allowed_ports, "parameters": input_parameters_ports}
     results := violation with input as input
     count(results) == 0
 }
-test_input_no_hostnetwork_container_ports_not_allowed { 
-    input := { "review": input_review_no_hostnetwork_container_ports_outofrange, "parameters": input_parameters_ports} 
+test_input_no_hostnetwork_container_ports_not_allowed {
+    input := { "review": input_review_no_hostnetwork_container_ports_outofrange, "parameters": input_parameters_ports}
     results := violation with input as input
     count(results) > 0
 }
-test_input_with_hostnetwork_is_allowed { 
-    input := { "review": input_review_with_hostnetwork_no_port, "parameters": input_parameters_ports} 
+test_input_with_hostnetwork_is_allowed {
+    input := { "review": input_review_with_hostnetwork_no_port, "parameters": input_parameters_ports}
     results := violation with input as input
     count(results) == 0
 }
-test_input_with_hostnetwork_constraint_no_hostnetwork_not_allowed { 
-    input := { "review": input_review_with_hostnetwork_no_port, "parameters": input_parameters_ports_no_hostnetwork} 
+test_input_with_hostnetwork_constraint_no_hostnetwork_not_allowed {
+    input := { "review": input_review_with_hostnetwork_no_port, "parameters": input_parameters_ports_no_hostnetwork}
     results := violation with input as input
     count(results) > 0
 }
-test_input_with_hostnetwork_container_ports_not_allowed { 
-    input := { "review": input_review_with_hostnetwork_port_outofrange, "parameters": input_parameters_ports} 
+test_input_with_hostnetwork_constraint_no_hostnetwork_explicit {
+    input := { "review": input_review_no_hostnetwork_explicit, "parameters": input_parameters_ports_no_hostnetwork}
+    results := violation with input as input
+    count(results) == 0
+}
+test_input_with_hostnetwork_container_ports_not_allowed {
+    input := { "review": input_review_with_hostnetwork_port_outofrange, "parameters": input_parameters_ports}
     results := violation with input as input
     count(results) == 1
 }
@@ -71,6 +76,19 @@ input_review_with_hostnetwork_no_port = {
         },
         "spec": {
             "hostNetwork": true,
+            "containers": input_containers_one
+      }
+    }
+}
+
+
+input_review_no_hostnetwork_explicit = {
+    "object": {
+        "metadata": {
+            "name": "nginx"
+        },
+        "spec": {
+            "hostNetwork": false,
             "containers": input_containers_one
       }
     }
