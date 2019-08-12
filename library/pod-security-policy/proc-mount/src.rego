@@ -19,8 +19,3 @@ input_containers[c] {
     c := input.review.object.spec.initContainers[_]
     c.securityContext.procMount
 }
-
-# has_field returns whether an object has a field
-has_field(object, field) = true {
-    object[field]
-}
