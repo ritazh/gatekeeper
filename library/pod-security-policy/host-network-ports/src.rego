@@ -11,13 +11,11 @@ input_share_hostnetwork(o) {
 }
 
 input_share_hostnetwork(o) {
-    count(input_containers[_].ports) > 0
     hostPort := input_containers[_].ports[_].hostPort
     hostPort < input.parameters.min
 }
 
 input_share_hostnetwork(o) {
-    count(input_containers[_].ports) > 0
     hostPort := input_containers[_].ports[_].hostPort
     hostPort > input.parameters.max
 }
