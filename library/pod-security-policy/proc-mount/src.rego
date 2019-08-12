@@ -12,14 +12,12 @@ input_proc_mount_type_allowed(c) {
 
 input_containers[c] {
     c := input.review.object.spec.containers[_]
-    has_field(c, "securityContext")
-    has_field(c.securityContext, "procMount")
+    c.securityContext.procMount
 }
 
 input_containers[c] {
     c := input.review.object.spec.initContainers[_]
-    has_field(c, "securityContext")
-    has_field(c.securityContext, "procMount")
+    c.securityContext.procMount
 }
 
 # has_field returns whether an object has a field
