@@ -77,6 +77,10 @@ var (
 		"color":        zapcore.LowercaseColorLevelEncoder,
 		"capitalcolor": zapcore.CapitalColorLevelEncoder,
 	}
+	webhooks = []rotator.WebhookInfo{{
+		Name: vwhName,
+		Type: rotator.Validating,
+	}}
 )
 
 var (
@@ -168,7 +172,7 @@ func main() {
 			CAOrganization: caOrganization,
 			DNSName:        dnsName,
 			IsReady:        setupFinished,
-			VWHName:        vwhName,
+			Webhooks:       webhooks,
 		}); err != nil {
 			setupLog.Error(err, "unable to set up cert rotation")
 			os.Exit(1)
