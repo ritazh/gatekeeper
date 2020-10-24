@@ -16,13 +16,12 @@ limitations under the License.
 package readiness
 
 import (
-	"crypto/tls"
-	"crypto/x509"
-	"encoding/pem"
 	"io/ioutil"
 	"net/http"
 	"path/filepath"
+	"time"
 
+    "github.com/open-policy-agent/cert-controller/pkg/rotator"
 	"github.com/pkg/errors"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -62,51 +61,10 @@ func (c *CertTracker) CheckCert(req *http.Request) error {
 	if err != nil {
 		return errors.Wrap(err, "Unable to open tls key")
 	}
-	err = ValidCert(caCrt, tlsCrt, tlsKey, c.dnsName)
-	if err != nil {
+	valid, err := rotator.ValidCert(caCrt, tlsCrt, tlsKey, c.dnsName, time.Now())
+	if err != nil || !valid {
 		return errors.Wrap(err, "readiness checker CheckCert certs not valid")
 	}
 	ctLog.V(1).Info("readiness checker CheckCert completed")
-	return nil
-}
-
-// ValidCert checks validity of cert
-func ValidCert(caCert, cert, key []byte, dnsName string) error {
-	if len(caCert) == 0 || len(cert) == 0 || len(key) == 0 {
-		return errors.New("empty cert")
-	}
-
-	pool := x509.NewCertPool()
-	caDer, _ := pem.Decode(caCert)
-	if caDer == nil {
-		return errors.New("bad CA cert")
-	}
-	cac, err := x509.ParseCertificate(caDer.Bytes)
-	if err != nil {
-		return errors.Wrap(err, "parsing CA cert")
-	}
-	pool.AddCert(cac)
-
-	_, err = tls.X509KeyPair(cert, key)
-	if err != nil {
-		return errors.Wrap(err, "building key pair")
-	}
-
-	b, _ := pem.Decode(cert)
-	if b == nil {
-		return errors.New("bad private key")
-	}
-
-	crt, err := x509.ParseCertificate(b.Bytes)
-	if err != nil {
-		return errors.Wrap(err, "parsing cert")
-	}
-	_, err = crt.Verify(x509.VerifyOptions{
-		DNSName: dnsName,
-		Roots:   pool,
-	})
-	if err != nil {
-		return errors.Wrap(err, "verifying cert")
-	}
 	return nil
 }
