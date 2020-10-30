@@ -41,7 +41,7 @@ const (
 	caKeyName              = "ca.key"
 	rotationCheckFrequency = 12 * time.Hour
 	certValidityDuration   = 10 * 365 * 24 * time.Hour
-	lookaheadDuration      = 90 * 24 * time.Hour
+	lookaheadInterval      = 90 * 24 * time.Hour
 )
 
 var crLog = logf.Log.WithName("cert-rotation")
@@ -345,7 +345,7 @@ func buildArtifactsFromSecret(secret *corev1.Secret) (*KeyPairArtifacts, error) 
 
 // CreateCACert creates the self-signed CA cert and private key that will
 // be used to sign the server certificate
-func (cr *CertRotator) CreateCACert(begin time.Time, end time.Time) (*KeyPairArtifacts, error) {
+func (cr *CertRotator) CreateCACert(begin, end time.Time) (*KeyPairArtifacts, error) {
 	templ := &x509.Certificate{
 		SerialNumber: big.NewInt(0),
 		Subject: pkix.Name{
@@ -383,7 +383,7 @@ func (cr *CertRotator) CreateCACert(begin time.Time, end time.Time) (*KeyPairArt
 
 // CreateCertPEM takes the results of CreateCACert and uses it to create the
 // PEM-encoded public certificate and private key, respectively
-func (cr *CertRotator) CreateCertPEM(ca *KeyPairArtifacts, begin time.Time, end time.Time) ([]byte, []byte, error) {
+func (cr *CertRotator) CreateCertPEM(ca *KeyPairArtifacts, begin, end time.Time) ([]byte, []byte, error) {
 	templ := &x509.Certificate{
 		SerialNumber: big.NewInt(1),
 		Subject: pkix.Name{
@@ -427,7 +427,7 @@ func pemEncode(certificateDER []byte, key *rsa.PrivateKey) ([]byte, []byte, erro
 }
 
 func lookaheadTime() time.Time {
-	return time.Now().Add(lookaheadDuration)
+	return time.Now().Add(lookaheadInterval)
 }
 
 func (cr *CertRotator) validServerCert(caCert, cert, key []byte) bool {
