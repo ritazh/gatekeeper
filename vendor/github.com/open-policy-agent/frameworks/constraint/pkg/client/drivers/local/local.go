@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"strings"
 	"sync"
 
@@ -15,6 +16,7 @@ import (
 	"github.com/open-policy-agent/opa/storage"
 	"github.com/open-policy-agent/opa/storage/inmem"
 	"github.com/open-policy-agent/opa/topdown"
+	opatypes "github.com/open-policy-agent/opa/types"
 	"github.com/pkg/errors"
 )
 
@@ -68,6 +70,64 @@ type driver struct {
 }
 
 func (d *driver) Init(ctx context.Context) error {
+	rego.RegisterBuiltin2(
+		&rego.Function{
+			Name:    "hello",
+			Decl:    opatypes.NewFunction(opatypes.Args(opatypes.S, opatypes.S), opatypes.A),
+			Memoize: true,
+		},
+		func(bctx rego.BuiltinContext, a, b *ast.Term) (*ast.Term, error) {
+			var var1, var2 string
+
+			if err := ast.As(a.Value, &var1); err != nil {
+				return nil, err
+			}
+			if err := ast.As(b.Value, &var2); err != nil {
+				return nil, err
+			}
+
+			return ast.StringTerm("test " + var1 + " " + var2), nil
+		},
+	)
+
+	rego.RegisterBuiltin1(
+		&rego.Function{
+			Name:    "external.data",
+			Decl:    opatypes.NewFunction(opatypes.Args(opatypes.S), opatypes.A),
+			Memoize: true,
+		},
+		func(bctx rego.BuiltinContext, a *ast.Term) (*ast.Term, error) {
+			var proxyURL string
+
+			if err := ast.As(a.Value, &proxyURL); err != nil {
+				return nil, err
+			}
+
+			req, err := http.NewRequest("GET", fmt.Sprintf("%v", proxyURL), nil)
+			if err != nil {
+				return nil, err
+			}
+
+			resp, err := http.DefaultClient.Do(req.WithContext(bctx.Context))
+			if err != nil {
+				return nil, err
+			}
+
+			defer resp.Body.Close()
+
+			if resp.StatusCode != http.StatusOK {
+				return nil, fmt.Errorf(resp.Status)
+			}
+
+			v, err := ast.ValueFromReader(resp.Body)
+			if err != nil {
+				return nil, err
+			}
+
+			return ast.NewTerm(v), nil
+		},
+	)
+
 	return nil
 }
 
@@ -308,6 +368,7 @@ func (d *driver) eval(ctx context.Context, path string, input interface{}, cfg *
 		rego.Input(input),
 		rego.Query(path),
 	}
+
 	if d.traceEnabled || cfg.TracingEnabled {
 		buf := topdown.NewBufferTracer()
 		args = append(args, rego.Tracer(buf))
