@@ -663,6 +663,17 @@ func (c *Client) ValidateConstraint(ctx context.Context, constraint *unstructure
 	return c.validateConstraint(constraint, true)
 }
 
+// AddExternalData validates the crd and, if valid, inserts it into cache.
+func (c *Client) AddExternalData(ctx context.Context, externalData *unstructured.Unstructured) error {
+	c.constraintsMux.RLock()
+	defer c.constraintsMux.RUnlock()
+	err := c.backend.driver.AddExternalData(ctx, externalData.GetName(), externalData)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 // init initializes the OPA backend for the client
 func (c *Client) init() error {
 	for _, t := range c.targets {
