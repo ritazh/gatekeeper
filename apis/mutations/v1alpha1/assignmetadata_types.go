@@ -33,7 +33,8 @@ type AssignMetadataSpec struct {
 type MetadataParameters struct {
 	// Assign.value holds the value to be assigned
 	// +kubebuilder:validation:XPreserveUnknownFields
-	Assign runtime.RawExtension `json:"assign,omitempty"`
+	Assign       runtime.RawExtension `json:"assign,omitempty"`
+	ExternalData ExternalData         `json:"externalData,omitempty"`
 }
 
 // AssignMetadataStatus defines the observed state of AssignMetadata

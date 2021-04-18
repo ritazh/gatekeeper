@@ -22,6 +22,7 @@ import (
 
 	opa "github.com/open-policy-agent/frameworks/constraint/pkg/client"
 	mutationsv1alpha1 "github.com/open-policy-agent/gatekeeper/apis/mutations/v1alpha1"
+	"github.com/open-policy-agent/gatekeeper/pkg/controller/externaldata"
 	"github.com/open-policy-agent/gatekeeper/pkg/logging"
 	"github.com/open-policy-agent/gatekeeper/pkg/mutation"
 	"github.com/open-policy-agent/gatekeeper/pkg/mutation/types"
@@ -67,6 +68,8 @@ func (a *Adder) InjectOpa(o *opa.Client) {}
 func (a *Adder) InjectWatchManager(w *watch.Manager) {}
 
 func (a *Adder) InjectControllerSwitch(cs *watch.ControllerSwitch) {}
+
+func (a *Adder) InjectProviderCache(providerCache *externaldata.ProviderCache) {}
 
 func (a *Adder) InjectTracker(t *readiness.Tracker) {
 	a.Tracker = t

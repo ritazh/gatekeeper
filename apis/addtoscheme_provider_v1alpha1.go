@@ -13,12 +13,13 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package controller
+package apis
 
 import (
-	"github.com/open-policy-agent/gatekeeper/pkg/controller/externaldata"
+	"github.com/open-policy-agent/frameworks/constraint/pkg/apis/externaldata/v1alpha1"
 )
 
 func init() {
-	Injectors = append(Injectors, &externaldata.Adder{})
+	// Register the types with the Scheme so the components can map objects to GroupVersionKinds and back
+	AddToSchemes = append(AddToSchemes, v1alpha1.AddToScheme)
 }

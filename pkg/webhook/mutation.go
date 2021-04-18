@@ -138,6 +138,7 @@ func (h *mutationHandler) Handle(ctx context.Context, req admission.Request) adm
 		return admission.ValidationResponse(true, "Namespace is set to be ignored by Gatekeeper config")
 	}
 
+	//log.Info("***", "req", req, "req.AdmissionRequest", req.AdmissionRequest)
 	resp, err := h.mutateRequest(ctx, req)
 
 	if err != nil {
@@ -197,6 +198,7 @@ func (h *mutationHandler) mutateRequest(ctx context.Context, req admission.Reque
 	}
 
 	newJSON, err := obj.MarshalJSON()
+	//log.Info("***", "newJSON", newJSON)
 	if err != nil {
 		log.Error(err, "failed to marshal mutated object", "object", obj)
 		return admission.Errored(int32(http.StatusInternalServerError), err), nil

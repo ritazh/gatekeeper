@@ -18,9 +18,31 @@ func mutate(mutator types.Mutator, tester *path.Tester, valueTest func(interface
 	if obj == nil {
 		return false, errors.New("attempting to mutate a nil object")
 	}
+
+	if mutator.HasExternalData() != "" {
+		log.Info("*** HAS EXTERNAL DATA", "mutator", mutator.ID())
+	}
+
+	//log.Info("***", "mutator", mutator, "id", mutator.ID())
+
+	//log.Info("***", "obj.Object", obj.Object)
 	mutated, _, err := s.mutateInternal(obj.Object, 0)
 	return mutated, err
 }
+
+// func getExternalData() {
+// 	resp, err := http.Get("https://httpbin.org/get")
+// 	if err != nil {
+// 		log.Fatalln(err)
+// 	}
+
+// 	body, err := ioutil.ReadAll(resp.Body)
+// 	if err != nil {
+// 		log.Fatalln(err)
+// 	}
+
+// 	log.Println(string(body))
+// }
 
 type mutatorState struct {
 	mutator types.Mutator
@@ -34,6 +56,9 @@ type mutatorState struct {
 // to any downstream objects in the tree, indicating that the mutation should not be persisted
 func (s *mutatorState) mutateInternal(current interface{}, depth int) (bool, interface{}, error) {
 	pathEntry := s.mutator.Path().Nodes[depth]
+
+	// if externalData use currentAsObject[castPathEntry.Reference] and mutate with returned value from EDP
+
 	switch castPathEntry := pathEntry.(type) {
 	case *parser.Object:
 		currentAsObject, ok := current.(map[string]interface{})
@@ -59,6 +84,7 @@ func (s *mutatorState) mutateInternal(current interface{}, depth int) (bool, int
 			if err != nil {
 				return false, nil, err
 			}
+			//log.Info("***", "currentAsObject[castPathEntry.Reference]", currentAsObject[castPathEntry.Reference], "currentAsObject", currentAsObject, "value", value)
 			currentAsObject[castPathEntry.Reference] = value
 			return true, currentAsObject, nil
 		}

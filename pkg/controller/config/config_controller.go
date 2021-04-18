@@ -22,6 +22,7 @@ import (
 	opa "github.com/open-policy-agent/frameworks/constraint/pkg/client"
 	configv1alpha1 "github.com/open-policy-agent/gatekeeper/apis/config/v1alpha1"
 	"github.com/open-policy-agent/gatekeeper/pkg/controller/config/process"
+	"github.com/open-policy-agent/gatekeeper/pkg/controller/externaldata"
 	syncc "github.com/open-policy-agent/gatekeeper/pkg/controller/sync"
 	"github.com/open-policy-agent/gatekeeper/pkg/keys"
 	"github.com/open-policy-agent/gatekeeper/pkg/metrics"
@@ -96,6 +97,8 @@ func (a *Adder) InjectProcessExcluder(m *process.Excluder) {
 }
 
 func (a *Adder) InjectMutationCache(mutationCache *mutation.System) {}
+
+func (a *Adder) InjectProviderCache(providerCache *externaldata.ProviderCache) {}
 
 // newReconciler returns a new reconcile.Reconciler
 // events is the channel from which sync controller will receive the events

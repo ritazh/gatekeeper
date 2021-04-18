@@ -20,12 +20,12 @@ import (
 // AssignMutator is a mutator object built out of a
 // Assign instance.
 type AssignMutator struct {
-	id        types.ID
-	assign    *mutationsv1alpha1.Assign
-	path      *parser.Path
-	bindings  []schema.Binding
-	tester    *patht.Tester
-	valueTest *mutationsv1alpha1.AssignIf
+	id           types.ID
+	assign       *mutationsv1alpha1.Assign
+	path         *parser.Path
+	bindings     []schema.Binding
+	tester       *patht.Tester
+	valueTest    *mutationsv1alpha1.AssignIf
 }
 
 // AssignMutator implements mutatorWithSchema
@@ -113,6 +113,10 @@ func (m *AssignMutator) HasDiff(mutator types.Mutator) bool {
 	}
 
 	return false
+}
+
+func (m *AssignMutator) HasExternalData() string {
+	return m.assign.Spec.Parameters.ExternalData.Provider
 }
 
 func (m *AssignMutator) Path() *parser.Path {

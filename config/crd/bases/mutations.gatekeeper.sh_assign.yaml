@@ -197,6 +197,13 @@ spec:
                   description: once https://github.com/kubernetes-sigs/controller-tools/pull/528
                     is merged, we can use an actual object
                   type: object
+                externalData:
+                  properties:
+                    provider:
+                      type: string
+                    value:
+                      type: string
+                  type: object
                 pathTests:
                   items:
                     description: "PathTest allows the user to customize how the mutation

@@ -45,6 +45,8 @@ type ApplyTo struct {
 }
 
 type Parameters struct {
+	ExternalData ExternalData `json:"externalData,omitempty"`
+
 	PathTests []PathTest `json:"pathTests,omitempty"`
 
 	// once https://github.com/kubernetes-sigs/controller-tools/pull/528

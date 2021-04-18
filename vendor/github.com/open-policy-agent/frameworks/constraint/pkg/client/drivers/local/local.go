@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"net/http"
 	"strings"
 	"sync"
 
@@ -13,11 +12,13 @@ import (
 	"github.com/open-policy-agent/frameworks/constraint/pkg/types"
 	"github.com/open-policy-agent/opa/ast"
 	"github.com/open-policy-agent/opa/rego"
+	opatypes "github.com/open-policy-agent/opa/types"
 	"github.com/open-policy-agent/opa/storage"
 	"github.com/open-policy-agent/opa/storage/inmem"
 	"github.com/open-policy-agent/opa/topdown"
-	opatypes "github.com/open-policy-agent/opa/types"
 	"github.com/pkg/errors"
+
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 const moduleSetPrefix = "__modset_"
@@ -47,15 +48,39 @@ func Tracing(enabled bool) Arg {
 	}
 }
 
+func DisableBuiltins(builtins ...string) Arg {
+	return func(d *driver) {
+		if d.capabilities == nil {
+			d.capabilities = ast.CapabilitiesForThisVersion()
+		}
+		disableBuiltins := make(map[string]bool)
+		for _, b := range builtins {
+			disableBuiltins[b] = true
+		}
+		var nb []*ast.Builtin
+		builtins := d.capabilities.Builtins
+		for i, b := range builtins {
+			if !disableBuiltins[b.Name] {
+				nb = append(nb, builtins[i])
+			}
+		}
+		d.capabilities.Builtins = nb
+	}
+}
+
 func New(args ...Arg) drivers.Driver {
 	d := &driver{
 		compiler: ast.NewCompiler(),
 		modules:  make(map[string]*ast.Module),
 		storage:  inmem.New(),
+		capabilities: ast.CapabilitiesForThisVersion(),
+		externalDataSources: make(map[string]*unstructured.Unstructured),
 	}
 	for _, arg := range args {
 		arg(d)
 	}
+	/// TODO(ritazh): this is overriding the custom builtin somehow
+	//d.compiler.WithCapabilities(d.capabilities)
 	return d
 }
 
@@ -66,68 +91,39 @@ type driver struct {
 	compiler     *ast.Compiler
 	modules      map[string]*ast.Module
 	storage      storage.Store
+	capabilities *ast.Capabilities
 	traceEnabled bool
+	externalDataSources  map[string]*unstructured.Unstructured
 }
 
 func (d *driver) Init(ctx context.Context) error {
 	rego.RegisterBuiltin2(
 		&rego.Function{
-			Name:    "hello",
+			Name:    "externaldata",
 			Decl:    opatypes.NewFunction(opatypes.Args(opatypes.S, opatypes.S), opatypes.A),
 			Memoize: true,
 		},
 		func(bctx rego.BuiltinContext, a, b *ast.Term) (*ast.Term, error) {
-			var var1, var2 string
+			var ed, input, result string
 
-			if err := ast.As(a.Value, &var1); err != nil {
+			if err := ast.As(a.Value, &ed); err != nil {
 				return nil, err
 			}
-			if err := ast.As(b.Value, &var2); err != nil {
+			if err := ast.As(b.Value, &input); err != nil {
 				return nil, err
 			}
 
-			return ast.StringTerm("test " + var1 + " " + var2), nil
+			result = fmt.Sprintf("input: %v, external datasource len: %v", input, len(d.externalDataSources))
+
+			if data, ok := d.externalDataSources[ed]; !ok {
+				result = fmt.Sprintf("external datasource %v not found", ed)
+			} else {
+				result = fmt.Sprintf("%s | %s ", result, data.GetKind())
+			}
+
+			return ast.StringTerm(input), nil
 		},
 	)
-
-	rego.RegisterBuiltin1(
-		&rego.Function{
-			Name:    "external.data",
-			Decl:    opatypes.NewFunction(opatypes.Args(opatypes.S), opatypes.A),
-			Memoize: true,
-		},
-		func(bctx rego.BuiltinContext, a *ast.Term) (*ast.Term, error) {
-			var proxyURL string
-
-			if err := ast.As(a.Value, &proxyURL); err != nil {
-				return nil, err
-			}
-
-			req, err := http.NewRequest("GET", fmt.Sprintf("%v", proxyURL), nil)
-			if err != nil {
-				return nil, err
-			}
-
-			resp, err := http.DefaultClient.Do(req.WithContext(bctx.Context))
-			if err != nil {
-				return nil, err
-			}
-
-			defer resp.Body.Close()
-
-			if resp.StatusCode != http.StatusOK {
-				return nil, fmt.Errorf(resp.Status)
-			}
-
-			v, err := ast.ValueFromReader(resp.Body)
-			if err != nil {
-				return nil, err
-			}
-
-			return ast.NewTerm(v), nil
-		},
-	)
-
 	return nil
 }
 
@@ -247,6 +243,8 @@ func (d *driver) alterModules(ctx context.Context, insert insertParam, remove []
 	}
 
 	c := ast.NewCompiler().WithPathConflictsCheck(storage.NonEmpty(ctx, d.storage, txn))
+	/// TODO(ritazh): this is overriding the custom builtin somehow
+	//.WithCapabilities(d.capabilities)
 	if c.Compile(updatedModules); c.Failed() {
 		d.storage.Abort(ctx, txn)
 		return 0, c.Errors
@@ -296,6 +294,13 @@ func parsePath(path string) ([]string, error) {
 		return nil, fmt.Errorf("Bad data path: %s", path)
 	}
 	return p, nil
+}
+func (d *driver) AddExternalData(ctx context.Context, key string, data *unstructured.Unstructured) error {
+	d.modulesMux.RLock()
+	defer d.modulesMux.RUnlock()
+
+	d.externalDataSources[key] = data
+	return nil
 }
 
 func (d *driver) PutData(ctx context.Context, path string, data interface{}) error {
@@ -368,7 +373,6 @@ func (d *driver) eval(ctx context.Context, path string, input interface{}, cfg *
 		rego.Input(input),
 		rego.Query(path),
 	}
-
 	if d.traceEnabled || cfg.TracingEnabled {
 		buf := topdown.NewBufferTracer()
 		args = append(args, rego.Tracer(buf))

@@ -90,6 +90,10 @@ func (m *AssignMetadataMutator) HasDiff(mutator types.Mutator) bool {
 	return false
 }
 
+func (m *AssignMetadataMutator) HasExternalData() string {
+	return m.assignMetadata.Spec.Parameters.ExternalData.Provider
+}
+
 func (m *AssignMetadataMutator) DeepCopy() types.Mutator {
 	p := m.path.DeepCopy()
 	res := &AssignMetadataMutator{
@@ -120,6 +124,8 @@ func (m *AssignMetadataMutator) String() string {
 // MutatorForAssignMetadata builds an AssignMetadataMutator from the given AssignMetadata object.
 func MutatorForAssignMetadata(assignMeta *mutationsv1alpha1.AssignMetadata) (*AssignMetadataMutator, error) {
 	path, err := parser.Parse(assignMeta.Spec.Location)
+	//log.Info("***", "path", path)
+
 	if err != nil {
 		return nil, errors.Wrapf(err, "invalid location format for AssignMetadata %s: %s", assignMeta.GetName(), assignMeta.Spec.Location)
 	}

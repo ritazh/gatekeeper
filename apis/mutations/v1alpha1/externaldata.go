@@ -13,12 +13,9 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package controller
+package v1alpha1
 
-import (
-	"github.com/open-policy-agent/gatekeeper/pkg/controller/externaldata"
-)
-
-func init() {
-	Injectors = append(Injectors, &externaldata.Adder{})
+type ExternalData struct {
+	Provider string `json:"provider,omitempty"`
+	Value    string `json:"value,omitempty"`
 }

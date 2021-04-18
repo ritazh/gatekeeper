@@ -66,3 +66,7 @@ func newDummyMutator(name, path string, value interface{}) *dummyMutator {
 	}
 	return &dummyMutator{name: name, path: p, value: value}
 }
+
+func (d *dummyMutator) HasExternalData() string {
+	return ""
+}
