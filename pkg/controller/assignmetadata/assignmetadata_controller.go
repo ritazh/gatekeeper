@@ -22,7 +22,7 @@ import (
 
 	opa "github.com/open-policy-agent/frameworks/constraint/pkg/client"
 	mutationsv1alpha1 "github.com/open-policy-agent/gatekeeper/apis/mutations/v1alpha1"
-	"github.com/open-policy-agent/gatekeeper/pkg/controller/externaldata"
+	"github.com/open-policy-agent/gatekeeper/pkg/externaldata"
 	"github.com/open-policy-agent/gatekeeper/pkg/logging"
 	"github.com/open-policy-agent/gatekeeper/pkg/mutation"
 	"github.com/open-policy-agent/gatekeeper/pkg/mutation/types"
@@ -53,13 +53,14 @@ var gvkAssignMetadata = schema.GroupVersionKind{
 
 type Adder struct {
 	MutationCache *mutation.System
+	ProviderCache *externaldata.ProviderCache
 	Tracker       *readiness.Tracker
 }
 
 // Add creates a new AssignMetadata Controller and adds it to the Manager. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
 func (a *Adder) Add(mgr manager.Manager) error {
-	r := newReconciler(mgr, a.MutationCache, a.Tracker)
+	r := newReconciler(mgr, a.MutationCache, a.ProviderCache, a.Tracker)
 	return add(mgr, r)
 }
 
@@ -69,7 +70,9 @@ func (a *Adder) InjectWatchManager(w *watch.Manager) {}
 
 func (a *Adder) InjectControllerSwitch(cs *watch.ControllerSwitch) {}
 
-func (a *Adder) InjectProviderCache(providerCache *externaldata.ProviderCache) {}
+func (a *Adder) InjectProviderCache(providerCache *externaldata.ProviderCache) {
+	a.ProviderCache = providerCache
+}
 
 func (a *Adder) InjectTracker(t *readiness.Tracker) {
 	a.Tracker = t
@@ -81,8 +84,8 @@ func (a *Adder) InjectMutationCache(mutationCache *mutation.System) {
 
 // newReconciler returns a new reconcile.Reconciler
 
-func newReconciler(mgr manager.Manager, mutationCache *mutation.System, tracker *readiness.Tracker) *Reconciler {
-	r := &Reconciler{system: mutationCache, Client: mgr.GetClient(), tracker: tracker}
+func newReconciler(mgr manager.Manager, mutationCache *mutation.System, providerCache *externaldata.ProviderCache, tracker *readiness.Tracker) *Reconciler {
+	r := &Reconciler{system: mutationCache, providerCache: providerCache, Client: mgr.GetClient(), tracker: tracker}
 	return r
 }
 
@@ -110,8 +113,9 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 // Reconciler reconciles a AssignMetadata object
 type Reconciler struct {
 	client.Client
-	system  *mutation.System
-	tracker *readiness.Tracker
+	system        *mutation.System
+	providerCache *externaldata.ProviderCache
+	tracker       *readiness.Tracker
 }
 
 // +kubebuilder:rbac:groups=mutations.gatekeeper.sh,resources=*,verbs=get;list;watch;create;update;patch;delete
@@ -155,7 +159,9 @@ func (r *Reconciler) Reconcile(ctx context.Context, request reconcile.Request) (
 		return ctrl.Result{}, nil
 	}
 
-	mutator, err := mutation.MutatorForAssignMetadata(assignMetadata)
+	cache := r.providerCache
+	mutator, err := mutation.MutatorForAssignMetadata(assignMetadata, cache)
+	// mutator.ProviderCache = r.ProviderCache
 	if err != nil {
 		log.Error(err, "Creating mutator for resource failed", "resource", request.NamespacedName)
 		tracker.CancelExpect(assignMetadata)

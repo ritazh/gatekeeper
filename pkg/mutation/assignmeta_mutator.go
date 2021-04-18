@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	mutationsv1alpha1 "github.com/open-policy-agent/gatekeeper/apis/mutations/v1alpha1"
+	"github.com/open-policy-agent/gatekeeper/pkg/externaldata"
 	"github.com/open-policy-agent/gatekeeper/pkg/mutation/path/parser"
 	"github.com/open-policy-agent/gatekeeper/pkg/mutation/path/tester"
 	"github.com/open-policy-agent/gatekeeper/pkg/mutation/types"
@@ -42,6 +43,7 @@ type AssignMetadataMutator struct {
 	id             types.ID
 	assignMetadata *mutationsv1alpha1.AssignMetadata
 	path           *parser.Path
+	providerCache  *externaldata.ProviderCache
 }
 
 // assignMetadataMutator implements mutator
@@ -94,6 +96,10 @@ func (m *AssignMetadataMutator) HasExternalData() string {
 	return m.assignMetadata.Spec.Parameters.ExternalData.Provider
 }
 
+func (m *AssignMetadataMutator) GetExternalData() *externaldata.ProviderCache {
+	return m.providerCache
+}
+
 func (m *AssignMetadataMutator) DeepCopy() types.Mutator {
 	p := m.path.DeepCopy()
 	res := &AssignMetadataMutator{
@@ -122,7 +128,7 @@ func (m *AssignMetadataMutator) String() string {
 }
 
 // MutatorForAssignMetadata builds an AssignMetadataMutator from the given AssignMetadata object.
-func MutatorForAssignMetadata(assignMeta *mutationsv1alpha1.AssignMetadata) (*AssignMetadataMutator, error) {
+func MutatorForAssignMetadata(assignMeta *mutationsv1alpha1.AssignMetadata, providerCache *externaldata.ProviderCache) (*AssignMetadataMutator, error) {
 	path, err := parser.Parse(assignMeta.Spec.Location)
 	//log.Info("***", "path", path)
 
@@ -157,6 +163,7 @@ func MutatorForAssignMetadata(assignMeta *mutationsv1alpha1.AssignMetadata) (*As
 		id:             id,
 		assignMetadata: assignMeta.DeepCopy(),
 		path:           path,
+		providerCache:  providerCache,
 	}, nil
 }
 
@@ -183,7 +190,7 @@ func isValidMetadataPath(path *parser.Path) bool {
 // IsValidAssignMetadata returns an error if the given assignmetadata object is not
 // semantically valid
 func IsValidAssignMetadata(assignMeta *mutationsv1alpha1.AssignMetadata) error {
-	if _, err := MutatorForAssignMetadata(assignMeta); err != nil {
+	if _, err := MutatorForAssignMetadata(assignMeta, nil); err != nil {
 		return err
 	}
 	return nil

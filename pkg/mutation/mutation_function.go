@@ -20,7 +20,12 @@ func mutate(mutator types.Mutator, tester *path.Tester, valueTest func(interface
 	}
 
 	if mutator.HasExternalData() != "" {
-		log.Info("*** HAS EXTERNAL DATA", "mutator", mutator.ID())
+		providerCache := mutator.GetExternalData()
+		proxyURL, err := providerCache.Get("quay")
+		if err != nil {
+			log.Error(err, "cache with key not found")
+		}
+		log.Info("*** HAS EXTERNAL DATA", "mutator", mutator.ID(), "proxyURL", proxyURL)
 	}
 
 	//log.Info("***", "mutator", mutator, "id", mutator.ID())

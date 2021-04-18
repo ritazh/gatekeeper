@@ -5,6 +5,7 @@ import (
 
 	externaldatav1alpha1 "github.com/open-policy-agent/frameworks/constraint/pkg/apis/externaldata/v1alpha1"
 	opa "github.com/open-policy-agent/frameworks/constraint/pkg/client"
+	"github.com/open-policy-agent/gatekeeper/pkg/externaldata"
 	"github.com/open-policy-agent/gatekeeper/pkg/logging"
 	"github.com/open-policy-agent/gatekeeper/pkg/mutation"
 	"github.com/open-policy-agent/gatekeeper/pkg/readiness"
@@ -33,7 +34,7 @@ var gvkExternalData = schema.GroupVersionKind{
 }
 
 type Adder struct {
-	ProviderCache *ProviderCache
+	ProviderCache *externaldata.ProviderCache
 	Tracker       *readiness.Tracker
 }
 
@@ -49,7 +50,7 @@ func (a *Adder) InjectTracker(t *readiness.Tracker) {
 	a.Tracker = t
 }
 
-func (a *Adder) InjectProviderCache(providerCache *ProviderCache) {
+func (a *Adder) InjectProviderCache(providerCache *externaldata.ProviderCache) {
 	a.ProviderCache = providerCache
 }
 
@@ -63,12 +64,12 @@ func (a *Adder) Add(mgr manager.Manager) error {
 // Reconciler reconciles a AssignMetadata object
 type Reconciler struct {
 	client.Client
-	providerCache  *ProviderCache
-	tracker *readiness.Tracker
+	providerCache *externaldata.ProviderCache
+	tracker       *readiness.Tracker
 }
 
 // newReconciler returns a new reconcile.Reconciler
-func newReconciler(mgr manager.Manager, providerCache *ProviderCache, tracker *readiness.Tracker) *Reconciler {
+func newReconciler(mgr manager.Manager, providerCache *externaldata.ProviderCache, tracker *readiness.Tracker) *Reconciler {
 	r := &Reconciler{providerCache: providerCache, Client: mgr.GetClient(), tracker: tracker}
 	return r
 }
@@ -128,13 +129,16 @@ func (r *Reconciler) Reconcile(ctx context.Context, request reconcile.Request) (
 		} else {
 			tracker.Observe(provider)
 		}
-		log.Info("*** Upsert", "providerCache", r.providerCache.cache )
+		log.Info("*** Upsert", "providerCache", r.providerCache.Cache)
+		test, _ := r.providerCache.Get(provider.Name)
+		log.Info("*** Upsert2", "providerCache.Get", test)
+
 	} else {
 		if err := r.providerCache.Remove(provider.Name); err != nil {
 			log.Error(err, "Remove failed", "resource", request.NamespacedName)
 		}
 		tracker.CancelExpect(provider)
-		log.Info("*** remove", "providerCache", r.providerCache.cache )
+		log.Info("*** Remove", "providerCache", r.providerCache.Cache)
 	}
 
 	return ctrl.Result{}, nil
