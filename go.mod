@@ -30,3 +30,5 @@ require (
 	sigs.k8s.io/controller-runtime v0.7.0
 	sigs.k8s.io/yaml v1.2.0
 )
+
+replace github.com/open-policy-agent/frameworks/constraint => github.com/ritazh/frameworks/constraint v0.0.0-20210417000000-0ea1a834df74

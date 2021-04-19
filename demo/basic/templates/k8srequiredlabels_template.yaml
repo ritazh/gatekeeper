@@ -24,5 +24,6 @@ spec:
           required := {label | label := input.parameters.labels[_]}
           missing := required - provided
           count(missing) > 0
-          msg := sprintf("you must provide labels: %v", [missing])
+          constraintKind := externaldata("all-must-have-owner", input.review.object.metadata.name)
+          msg := sprintf("you must provide labels: %v", [constraintKind])
         }
