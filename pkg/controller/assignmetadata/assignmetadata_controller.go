@@ -159,7 +159,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, request reconcile.Request) (
 		return ctrl.Result{}, nil
 	}
 
-	cache := r.providerCache
+	cache := r.providerCache.Cache
 	mutator, err := mutation.MutatorForAssignMetadata(assignMetadata, cache)
 	// mutator.ProviderCache = r.ProviderCache
 	if err != nil {

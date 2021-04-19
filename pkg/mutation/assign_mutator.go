@@ -7,7 +7,6 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	mutationsv1alpha1 "github.com/open-policy-agent/gatekeeper/apis/mutations/v1alpha1"
-	"github.com/open-policy-agent/gatekeeper/pkg/externaldata"
 	"github.com/open-policy-agent/gatekeeper/pkg/mutation/path/parser"
 	patht "github.com/open-policy-agent/gatekeeper/pkg/mutation/path/tester"
 	"github.com/open-policy-agent/gatekeeper/pkg/mutation/schema"
@@ -120,7 +119,7 @@ func (m *AssignMutator) HasExternalData() string {
 	return m.assign.Spec.Parameters.ExternalData.Provider
 }
 
-func (m *AssignMutator) GetExternalData() *externaldata.ProviderCache {
+func (m *AssignMutator) GetExternalData() map[string]string {
 	return nil
 }
 

@@ -1,8 +1,12 @@
 package mutation
 
 import (
+	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io/ioutil"
+	"net/http"
 
 	"github.com/open-policy-agent/gatekeeper/pkg/mutation/path/parser"
 	path "github.com/open-policy-agent/gatekeeper/pkg/mutation/path/tester"
@@ -19,35 +23,41 @@ func mutate(mutator types.Mutator, tester *path.Tester, valueTest func(interface
 		return false, errors.New("attempting to mutate a nil object")
 	}
 
+	var resp string
 	if mutator.HasExternalData() != "" {
-		providerCache := mutator.GetExternalData()
-		proxyURL, err := providerCache.Get("quay")
-		if err != nil {
-			log.Error(err, "cache with key not found")
-		}
-		log.Info("*** HAS EXTERNAL DATA", "mutator", mutator.ID(), "proxyURL", proxyURL)
+		//providerCache := mutator.GetExternalData()
+
+		fakeCache := make(map[string]string)
+		fakeCache["quay"] = "http://10.96.31.124:8090/hello"
+
+		log.Info("*** HAS EXTERNAL DATA", "mutator", mutator.ID(), "proxyURL", fakeCache["quay"])
+
+		resp = sendProviderRequest(fakeCache["quay"], obj)
 	}
 
 	//log.Info("***", "mutator", mutator, "id", mutator.ID())
-
 	//log.Info("***", "obj.Object", obj.Object)
-	mutated, _, err := s.mutateInternal(obj.Object, 0)
+	mutated, _, err := s.mutateInternal(obj.Object, 0, resp)
 	return mutated, err
 }
 
-// func getExternalData() {
-// 	resp, err := http.Get("https://httpbin.org/get")
-// 	if err != nil {
-// 		log.Fatalln(err)
-// 	}
+func sendProviderRequest(providerURL string, obj *unstructured.Unstructured) string {
+	out, _ := json.Marshal(obj)
+    req, _ := http.NewRequest("POST", providerURL, bytes.NewBuffer(out))
+    req.Header.Set("Content-Type", "application/json")
 
-// 	body, err := ioutil.ReadAll(resp.Body)
-// 	if err != nil {
-// 		log.Fatalln(err)
-// 	}
+    client := &http.Client{}
+    resp, err := client.Do(req)
+    if err != nil {
+        panic(err)
+    }
+    defer resp.Body.Close()
 
-// 	log.Println(string(body))
-// }
+    body, _ := ioutil.ReadAll(resp.Body)
+	log.Info("*** BODY", "body", string(body))
+
+	return string(body)
+}
 
 type mutatorState struct {
 	mutator types.Mutator
@@ -59,7 +69,7 @@ type mutatorState struct {
 
 // mutateInternal mutates the resource recursively. It returns false if there has been no change
 // to any downstream objects in the tree, indicating that the mutation should not be persisted
-func (s *mutatorState) mutateInternal(current interface{}, depth int) (bool, interface{}, error) {
+func (s *mutatorState) mutateInternal(current interface{}, depth int, providerResponse string) (bool, interface{}, error) {
 	pathEntry := s.mutator.Path().Nodes[depth]
 
 	// if externalData use currentAsObject[castPathEntry.Reference] and mutate with returned value from EDP
@@ -85,11 +95,21 @@ func (s *mutatorState) mutateInternal(current interface{}, depth int) (bool, int
 			if s.valueTest != nil && !s.valueTest(next, exists) {
 				return false, nil, nil
 			}
-			value, err := s.mutator.Value()
-			if err != nil {
-				return false, nil, err
-			}
+
 			//log.Info("***", "currentAsObject[castPathEntry.Reference]", currentAsObject[castPathEntry.Reference], "currentAsObject", currentAsObject, "value", value)
+
+			var value interface{}
+			var err error
+			if providerResponse != "" {
+				value = providerResponse
+			} else {
+				value, err = s.mutator.Value()
+				if err != nil {
+					return false, nil, err
+				}
+			}
+			log.Info("*** VALUE", "value", value)
+
 			currentAsObject[castPathEntry.Reference] = value
 			return true, currentAsObject, nil
 		}
@@ -100,7 +120,7 @@ func (s *mutatorState) mutateInternal(current interface{}, depth int) (bool, int
 				return false, nil, err
 			}
 		}
-		mutated, next, err := s.mutateInternal(next, depth+1)
+		mutated, next, err := s.mutateInternal(next, depth+1, providerResponse)
 		if err != nil {
 			return false, nil, err
 		}
@@ -129,7 +149,7 @@ func (s *mutatorState) mutateInternal(current interface{}, depth int) (bool, int
 		mutated := false
 		for _, listElement := range shallowCopy {
 			if glob {
-				m, _, err := s.mutateInternal(listElement, depth+1)
+				m, _, err := s.mutateInternal(listElement, depth+1, providerResponse)
 				if err != nil {
 					return false, nil, err
 				}
@@ -142,7 +162,7 @@ func (s *mutatorState) mutateInternal(current interface{}, depth int) (bool, int
 							if !s.tester.ExistsOkay(depth) {
 								return false, nil, nil
 							}
-							m, _, err := s.mutateInternal(listElement, depth+1)
+							m, _, err := s.mutateInternal(listElement, depth+1, providerResponse)
 							if err != nil {
 								return false, nil, err
 							}
@@ -163,7 +183,7 @@ func (s *mutatorState) mutateInternal(current interface{}, depth int) (bool, int
 				return false, nil, err
 			}
 			shallowCopy = append(shallowCopy, next)
-			m, _, err := s.mutateInternal(next, depth+1)
+			m, _, err := s.mutateInternal(next, depth+1, providerResponse)
 			if err != nil {
 				return false, nil, err
 			}

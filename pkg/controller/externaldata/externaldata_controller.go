@@ -132,7 +132,6 @@ func (r *Reconciler) Reconcile(ctx context.Context, request reconcile.Request) (
 		log.Info("*** Upsert", "providerCache", r.providerCache.Cache)
 		test, _ := r.providerCache.Get(provider.Name)
 		log.Info("*** Upsert2", "providerCache.Get", test)
-
 	} else {
 		if err := r.providerCache.Remove(provider.Name); err != nil {
 			log.Error(err, "Remove failed", "resource", request.NamespacedName)

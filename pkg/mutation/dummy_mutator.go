@@ -4,7 +4,6 @@ import (
 	"reflect"
 
 	mutationsv1alpha1 "github.com/open-policy-agent/gatekeeper/apis/mutations/v1alpha1"
-	"github.com/open-policy-agent/gatekeeper/pkg/externaldata"
 	"github.com/open-policy-agent/gatekeeper/pkg/mutation/path/parser"
 	path "github.com/open-policy-agent/gatekeeper/pkg/mutation/path/tester"
 	"github.com/open-policy-agent/gatekeeper/pkg/mutation/types"
@@ -72,6 +71,6 @@ func (d *dummyMutator) HasExternalData() string {
 	return ""
 }
 
-func (d *dummyMutator) GetExternalData() *externaldata.ProviderCache {
+func (d *dummyMutator) GetExternalData() map[string]string {
 	return nil
 }
