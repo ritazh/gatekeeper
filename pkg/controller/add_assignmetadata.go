@@ -16,9 +16,9 @@ limitations under the License.
 package controller
 
 import (
-	"github.com/open-policy-agent/gatekeeper/pkg/controller/externaldata"
+	"github.com/open-policy-agent/gatekeeper/pkg/controller/assignmetadata"
 )
 
 func init() {
-	Injectors = append(Injectors, &externaldata.Adder{})
+	Injectors = append(Injectors, &assignmetadata.Adder{})
 }
