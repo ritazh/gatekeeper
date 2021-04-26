@@ -34,11 +34,14 @@ var gvkExternalData = schema.GroupVersionKind{
 }
 
 type Adder struct {
+	Opa              *opa.Client
 	ProviderCache *externaldata.ProviderCache
 	Tracker       *readiness.Tracker
 }
 
-func (a *Adder) InjectOpa(o *opa.Client) {}
+func (a *Adder) InjectOpa(o *opa.Client) {
+	a.Opa = o
+}
 
 func (a *Adder) InjectWatchManager(w *watch.Manager) {}
 
@@ -57,20 +60,21 @@ func (a *Adder) InjectProviderCache(providerCache *externaldata.ProviderCache) {
 // Add creates a new ExternalData Controller and adds it to the Manager. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
 func (a *Adder) Add(mgr manager.Manager) error {
-	r := newReconciler(mgr, a.ProviderCache, a.Tracker)
+	r := newReconciler(mgr, a.Opa, a.ProviderCache, a.Tracker)
 	return add(mgr, r)
 }
 
 // Reconciler reconciles a AssignMetadata object
 type Reconciler struct {
 	client.Client
+	opa           *opa.Client
 	providerCache *externaldata.ProviderCache
 	tracker       *readiness.Tracker
 }
 
 // newReconciler returns a new reconcile.Reconciler
-func newReconciler(mgr manager.Manager, providerCache *externaldata.ProviderCache, tracker *readiness.Tracker) *Reconciler {
-	r := &Reconciler{providerCache: providerCache, Client: mgr.GetClient(), tracker: tracker}
+func newReconciler(mgr manager.Manager, opa *opa.Client, providerCache *externaldata.ProviderCache, tracker *readiness.Tracker) *Reconciler {
+	r := &Reconciler{opa: opa, providerCache: providerCache, Client: mgr.GetClient(), tracker: tracker}
 	return r
 }
 
@@ -123,6 +127,9 @@ func (r *Reconciler) Reconcile(ctx context.Context, request reconcile.Request) (
 		return ctrl.Result{}, err
 	}
 	if !deleted {
+		if err := r.opa.AddExternalData(ctx, provider); err != nil {
+			return reconcile.Result{}, err
+		}
 		if err := r.providerCache.Upsert(provider.Name, provider.Spec.ProxyURL); err != nil {
 			log.Error(err, "Upsert failed", "resource", request.NamespacedName)
 			tracker.TryCancelExpect(provider)
