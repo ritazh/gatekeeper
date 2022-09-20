@@ -91,7 +91,8 @@ func (d *Driver) Query(ctx context.Context, target string, constraints []*unstru
 	stdout := bytes.NewBuffer(nil)
 
 	c := wazero.NewRuntimeConfig().
-		WithFeatureBulkMemoryOperations(true).WithFeatureSignExtensionOps(true) // not sure why we need this but got this error: memory.copy invalid as feature "bulk-memory-operations" is disabled
+		WithFeatureBulkMemoryOperations(true).WithFeatureSignExtensionOps(true).WithFeatureNonTrappingFloatToIntConversion(true)
+	// not sure why we need this but got this error: memory.copy invalid as feature "bulk-memory-operations" is disabled
 	r := wazero.NewRuntimeWithConfig(ctx, c)
 	//r := wazero.NewRuntime(ctx)
 	defer r.Close(ctx)
