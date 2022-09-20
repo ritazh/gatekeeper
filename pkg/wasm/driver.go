@@ -1,6 +1,7 @@
 package wasm
 
 import (
+	"bytes"
 	"context"
 	_ "embed"
 	"fmt"
@@ -33,7 +34,7 @@ type Driver struct {
 }
 
 type WasmDecision struct {
-	Decision []uint64
+	Decision []byte
 	Name     string
 }
 
@@ -87,13 +88,15 @@ func (d *Driver) RemoveData(ctx context.Context, target string, path storage.Pat
 
 func (d *Driver) Query(ctx context.Context, target string, constraints []*unstructured.Unstructured, review interface{}, opts ...drivers.QueryOpt) ([]*types.Result, *string, error) {
 
+	stdout := bytes.NewBuffer(nil)
+
 	c := wazero.NewRuntimeConfig().
 		WithFeatureBulkMemoryOperations(true).WithFeatureSignExtensionOps(true) // not sure why we need this but got this error: memory.copy invalid as feature "bulk-memory-operations" is disabled
 	r := wazero.NewRuntimeWithConfig(ctx, c)
 	//r := wazero.NewRuntime(ctx)
 	defer r.Close(ctx)
 	// By default, I/O streams are discarded and there's no file system.
-	config := wazero.NewModuleConfig().WithStdout(os.Stdout).WithStderr(os.Stderr)
+	config := wazero.NewModuleConfig().WithStdout(stdout).WithStderr(os.Stderr)
 
 	_, err := r.NewModuleBuilder("env").
 		ExportFunction("log", logString).
@@ -112,6 +115,10 @@ func (d *Driver) Query(ctx context.Context, target string, constraints []*unstru
 	// only run the constraints with wasm modules
 	for _, constraint := range constraints {
 		wasmModuleName[strings.ToLower(constraint.GetKind())] = true
+		///TODO: get parameters
+		// params, _, err := unstructured.NestedFieldNoCopy(constraint.Object, "spec", "parameters")
+		// if err != nil {
+		// }
 	}
 
 	gkr := review.(*target2.GkReview)
@@ -142,20 +149,21 @@ func (d *Driver) Query(ctx context.Context, target string, constraints []*unstru
 			return nil, nil, err
 		}
 		// pass in object as os.Args[1]
-		mod, err := r.InstantiateModule(ctx, code, config.WithArgs("gatekeeper", string(gkr.Object.Raw)))
+		mod, err := r.InstantiateModule(ctx, code, config.WithArgs("gatekeeper", string(gkr.Object.Raw), "")) //add parameter later
 		if err != nil {
 			return nil, nil, err
 		}
+		///TODO: change to eval later
 		modEval := mod.ExportedFunction("greet")
-		///TODO: convert resource to some format
-		//decision, err := modEval.Call(ctx)
+
 		_, err = modEval.Call(ctx)
 		if err != nil {
-			return nil, nil, fmt.Errorf("error running wasm module gcd: %v", err)
+			return nil, nil, fmt.Errorf("error running wasm module %s: %v", name, err)
 		}
+		decision := stdout.Bytes()
 		wasmDecision := &WasmDecision{
-			//Decision:  decision,
-			Name: name,
+			Decision: decision,
+			Name:     name,
 		}
 
 		allDecisions = append(allDecisions, wasmDecision)
@@ -171,7 +179,7 @@ func (d *Driver) Query(ctx context.Context, target string, constraints []*unstru
 				"name": wasmDecision.Name,
 			},
 			Constraint:        constraints[0],
-			Msg:               wasmDecision.Name,
+			Msg:               string(wasmDecision.Decision),
 			EnforcementAction: constraints2.EnforcementActionDeny,
 		}
 	}
