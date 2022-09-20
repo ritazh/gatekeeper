@@ -80,19 +80,19 @@ func (h *K8sValidationTarget) HandleReview(obj interface{}) (bool, interface{}, 
 }
 
 // handleReview returns a complete *gkReview to pass to the Client.
-func (h *K8sValidationTarget) handleReview(obj interface{}) (bool, *gkReview, error) {
+func (h *K8sValidationTarget) handleReview(obj interface{}) (bool, *GkReview, error) {
 	var err error
-	var review *gkReview
+	var review *GkReview
 
 	switch data := obj.(type) {
 	case admissionv1.AdmissionRequest:
-		review = &gkReview{AdmissionRequest: data}
+		review = &GkReview{AdmissionRequest: data}
 	case *admissionv1.AdmissionRequest:
-		review = &gkReview{AdmissionRequest: *data}
+		review = &GkReview{AdmissionRequest: *data}
 	case AugmentedReview:
-		review = &gkReview{AdmissionRequest: *data.AdmissionRequest, namespace: data.Namespace}
+		review = &GkReview{AdmissionRequest: *data.AdmissionRequest, namespace: data.Namespace}
 	case *AugmentedReview:
-		review = &gkReview{AdmissionRequest: *data.AdmissionRequest, namespace: data.Namespace}
+		review = &GkReview{AdmissionRequest: *data.AdmissionRequest, namespace: data.Namespace}
 	case AugmentedUnstructured:
 		review, err = augmentedUnstructuredToAdmissionRequest(data)
 		if err != nil {
@@ -120,7 +120,7 @@ func (h *K8sValidationTarget) handleReview(obj interface{}) (bool, *gkReview, er
 	return true, review, nil
 }
 
-func augmentedUnstructuredToAdmissionRequest(obj AugmentedUnstructured) (*gkReview, error) {
+func augmentedUnstructuredToAdmissionRequest(obj AugmentedUnstructured) (*GkReview, error) {
 	review, err := unstructuredToAdmissionRequest(&obj.Object)
 	if err != nil {
 		return nil, err
@@ -131,7 +131,7 @@ func augmentedUnstructuredToAdmissionRequest(obj AugmentedUnstructured) (*gkRevi
 	return review, nil
 }
 
-func unstructuredToAdmissionRequest(obj *unstructured.Unstructured) (*gkReview, error) {
+func unstructuredToAdmissionRequest(obj *unstructured.Unstructured) (*GkReview, error) {
 	resourceJSON, err := obj.MarshalJSON()
 	if err != nil {
 		return nil, fmt.Errorf("%w: unable to marshal JSON encoding of object", ErrRequestObject)
@@ -150,7 +150,7 @@ func unstructuredToAdmissionRequest(obj *unstructured.Unstructured) (*gkReview, 
 		Namespace: obj.GetNamespace(),
 	}
 
-	return &gkReview{AdmissionRequest: req}, nil
+	return &GkReview{AdmissionRequest: req}, nil
 }
 
 func propsWithDescription(props *apiextensions.JSONSchemaProps, description string) *apiextensions.JSONSchemaProps {

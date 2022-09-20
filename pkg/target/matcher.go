@@ -23,9 +23,9 @@ func (m *Matcher) Match(review interface{}) (bool, error) {
 		return true, nil
 	}
 
-	gkReq, ok := review.(*gkReview)
+	gkReq, ok := review.(*GkReview)
 	if !ok {
-		return false, fmt.Errorf("%w: expect %T, got %T", ErrReviewFormat, &gkReview{}, review)
+		return false, fmt.Errorf("%w: expect %T, got %T", ErrReviewFormat, &GkReview{}, review)
 	}
 
 	obj, oldObj, ns, err := gkReviewToObject(gkReq)
@@ -64,7 +64,7 @@ func matchAny(m *Matcher, ns *corev1.Namespace, objs ...*unstructured.Unstructur
 	return false, nil
 }
 
-func gkReviewToObject(req *gkReview) (*unstructured.Unstructured, *unstructured.Unstructured, *corev1.Namespace, error) {
+func gkReviewToObject(req *GkReview) (*unstructured.Unstructured, *unstructured.Unstructured, *corev1.Namespace, error) {
 	var obj *unstructured.Unstructured
 	if req.Object.Raw != nil {
 		obj = &unstructured.Unstructured{}

@@ -3,6 +3,7 @@ package wasm
 import (
 	"context"
 	"fmt"
+	"os"
 	"strings"
 
 	constraints2 "github.com/open-policy-agent/frameworks/constraint/pkg/apis/constraints"
@@ -28,8 +29,8 @@ type Driver struct {
 }
 
 type WasmDecision struct {
-	Decision		bool
-	ConstraintName	string
+	Decision		[]uint64
+	Name			string
 }
 
 var _ drivers.Driver = &Driver{}
@@ -45,6 +46,7 @@ func (d *Driver) AddTemplate(ctx context.Context, ct *templates.ConstraintTempla
 		return nil
 	}
 	/// TODO: let's pretend this is just a string for now
+	/// TODO: mutax
 	d.wasmModules[ct.Name] = wasmCode
 	return nil
 }
@@ -58,7 +60,7 @@ func (d *Driver) RemoveTemplate(ctx context.Context, ct *templates.ConstraintTem
 func (d *Driver) AddConstraint(ctx context.Context, constraint *unstructured.Unstructured) error {
 	wasmModuleName := strings.ToLower(constraint.GetKind())
 
-	wasmModule, found := d.wasmModules[wasmModuleName]
+	_, found := d.wasmModules[wasmModuleName]
 	if !found {
 		return fmt.Errorf("no wasmModuleName with name: %q", wasmModuleName)
 	}
@@ -83,6 +85,9 @@ func (d *Driver) Query(ctx context.Context, target string, constraints []*unstru
 
 	r := wazero.NewRuntime(ctx)
 	defer r.Close(ctx)
+	// By default, I/O streams are discarded and there's no file system.
+	config := wazero.NewModuleConfig().WithStdout(os.Stdout).WithStderr(os.Stderr)
+
 	_, err := r.NewModuleBuilder("env").
 		ExportFunction("log", logString).
 		Instantiate(ctx, r)
@@ -108,15 +113,15 @@ func (d *Driver) Query(ctx context.Context, target string, constraints []*unstru
 		Object: make(map[string]interface{}),
 	}
 
-	err := obj.UnmarshalJSON(gkr.Object.Raw)
+	err = obj.UnmarshalJSON(gkr.Object.Raw)
 	if err != nil {
 		return nil, nil, err
 	}
-
-	resource := map[string]interface{}{
-		"resource": obj.Object,
-	}
-	var allDecisions []WasmDecision
+	///TODO: resource
+	// resource := map[string]interface{}{
+	// 	"resource": obj.Object,
+	// }
+	var allDecisions []*WasmDecision
 	for name := range wasmModuleName {
 		wasmModule, found := d.wasmModules[name]
 		if !found {
@@ -124,21 +129,28 @@ func (d *Driver) Query(ctx context.Context, target string, constraints []*unstru
 		}
 
 		fmt.Println("Running wasm module", name)
-		mod, err := r.InstantiateModuleFromBinary(ctx, wasmModule)
+		moduleBytes := []byte(wasmModule)
+		code, err := r.CompileModule(ctx, moduleBytes, wazero.NewCompileConfig())
 		if err != nil {
 			return nil, nil, err
 		}
-		modEval := mod.ExportedFunction("eval")
-		decision, err = modEval.Call(ctx, resource)
+		// pass in object as os.Args[1]
+		mod, err := r.InstantiateModule(ctx, code, config.WithArgs("gatekeeper", string(gkr.Object.Raw)))
 		if err != nil {
-			return nil, nil, fmt.Errorf("error running wasm module eval: %v", err)
+			return nil, nil, err
 		}
-		wasmDecision := &wasmDecision{
-			Decision: decison,
+		modEval := mod.ExportedFunction("gcd")
+		///TODO: convert resource to some format 
+		decision, err := modEval.Call(ctx, 3, 4)
+		if err != nil {
+			return nil, nil, fmt.Errorf("error running wasm module gcd: %v", err)
+		}
+		wasmDecision := &WasmDecision{
+			Decision: decision,
 			Name: name,
 		}
 		
-		allDecisions = append(allDecisions, wasmDecision...)
+		allDecisions = append(allDecisions, wasmDecision)
 	}
 	if len(allDecisions) == 0 {
 		return nil, nil, nil
@@ -157,6 +169,14 @@ func (d *Driver) Query(ctx context.Context, target string, constraints []*unstru
 	}
 
 	return results, nil, nil
+}
+
+func logString(ctx context.Context, m api.Module, offset, byteCount uint32) {
+	buf, ok := m.Memory().Read(ctx, offset, byteCount)
+	if !ok {
+		panic("Memory.Read out of range")
+	}
+	fmt.Println(string(buf))
 }
 
 func (d *Driver) Dump(ctx context.Context) (string, error) {
