@@ -7,10 +7,11 @@ import (
 	"github.com/open-policy-agent/frameworks/constraint/pkg/apis"
 	templatesv1 "github.com/open-policy-agent/frameworks/constraint/pkg/apis/templates/v1"
 	constraintclient "github.com/open-policy-agent/frameworks/constraint/pkg/client"
-	"github.com/open-policy-agent/frameworks/constraint/pkg/client/drivers/local"
+	//"github.com/open-policy-agent/frameworks/constraint/pkg/client/drivers/local"
 	"github.com/open-policy-agent/frameworks/constraint/pkg/types"
 	"github.com/open-policy-agent/gatekeeper/pkg/gator"
 	"github.com/open-policy-agent/gatekeeper/pkg/target"
+	"github.com/open-policy-agent/gatekeeper/pkg/wasm"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 )
@@ -28,10 +29,12 @@ func init() {
 func Test(objs []*unstructured.Unstructured) (*types.Responses, error) {
 	// create the client
 
-	driver, err := local.New(local.Tracing(false))
-	if err != nil {
-		return nil, err
-	}
+	// driver, err := local.New(local.Tracing(false))
+	// if err != nil {
+	// 	return nil, err
+	// }
+
+	driver := wasm.NewDriver()
 
 	client, err := constraintclient.NewClient(constraintclient.Targets(&target.K8sValidationTarget{}), constraintclient.Driver(driver))
 	if err != nil {

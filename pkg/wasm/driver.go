@@ -2,6 +2,7 @@ package wasm
 
 import (
 	"context"
+	_ "embed"
 	"fmt"
 	"os"
 	"strings"
@@ -18,6 +19,9 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
+//go:embed greet.wasm
+var greetWasm []byte
+
 func NewDriver() *Driver {
 	return &Driver{
 		wasmModules: make(map[string]string),
@@ -29,25 +33,26 @@ type Driver struct {
 }
 
 type WasmDecision struct {
-	Decision		[]uint64
-	Name			string
+	Decision []uint64
+	Name     string
 }
 
 var _ drivers.Driver = &Driver{}
 
 func (d *Driver) AddTemplate(ctx context.Context, ct *templates.ConstraintTemplate) error {
-	
+
 	if len(ct.Spec.Targets) == 0 {
 		return nil
 	}
 
 	wasmCode := ct.Spec.Targets[0].Rego //Wasm
+
 	if wasmCode == "" {
 		return nil
 	}
 	/// TODO: let's pretend this is just a string for now
 	/// TODO: mutax
-	d.wasmModules[ct.Name] = wasmCode
+	d.wasmModules[ct.Name] = string(greetWasm) // wasmCode
 	return nil
 }
 
@@ -64,7 +69,6 @@ func (d *Driver) AddConstraint(ctx context.Context, constraint *unstructured.Uns
 	if !found {
 		return fmt.Errorf("no wasmModuleName with name: %q", wasmModuleName)
 	}
-
 
 	return nil
 }
@@ -83,7 +87,10 @@ func (d *Driver) RemoveData(ctx context.Context, target string, path storage.Pat
 
 func (d *Driver) Query(ctx context.Context, target string, constraints []*unstructured.Unstructured, review interface{}, opts ...drivers.QueryOpt) ([]*types.Result, *string, error) {
 
-	r := wazero.NewRuntime(ctx)
+	c := wazero.NewRuntimeConfig().
+		WithFeatureBulkMemoryOperations(true).WithFeatureSignExtensionOps(true) // not sure why we need this but got this error: memory.copy invalid as feature "bulk-memory-operations" is disabled
+	r := wazero.NewRuntimeWithConfig(ctx, c)
+	//r := wazero.NewRuntime(ctx)
 	defer r.Close(ctx)
 	// By default, I/O streams are discarded and there's no file system.
 	config := wazero.NewModuleConfig().WithStdout(os.Stdout).WithStderr(os.Stderr)
@@ -139,17 +146,18 @@ func (d *Driver) Query(ctx context.Context, target string, constraints []*unstru
 		if err != nil {
 			return nil, nil, err
 		}
-		modEval := mod.ExportedFunction("gcd")
-		///TODO: convert resource to some format 
-		decision, err := modEval.Call(ctx, 3, 4)
+		modEval := mod.ExportedFunction("greet")
+		///TODO: convert resource to some format
+		//decision, err := modEval.Call(ctx)
+		_, err = modEval.Call(ctx)
 		if err != nil {
 			return nil, nil, fmt.Errorf("error running wasm module gcd: %v", err)
 		}
 		wasmDecision := &WasmDecision{
-			Decision: decision,
+			//Decision:  decision,
 			Name: name,
 		}
-		
+
 		allDecisions = append(allDecisions, wasmDecision)
 	}
 	if len(allDecisions) == 0 {
