@@ -113,12 +113,14 @@ func (d *Driver) Query(ctx context.Context, target string, constraints []*unstru
 
 	wasmModuleName := make(map[string]bool)
 	// only run the constraints with wasm modules
+	var params interface{}
 	for _, constraint := range constraints {
 		wasmModuleName[strings.ToLower(constraint.GetKind())] = true
-		///TODO: get parameters
-		// params, _, err := unstructured.NestedFieldNoCopy(constraint.Object, "spec", "parameters")
-		// if err != nil {
-		// }
+
+		params, _, err = unstructured.NestedFieldNoCopy(constraint.Object, "spec", "parameters")
+		if err != nil {
+			return nil, nil, err
+		}
 	}
 
 	gkr := review.(*target2.GkReview)
@@ -149,7 +151,7 @@ func (d *Driver) Query(ctx context.Context, target string, constraints []*unstru
 			return nil, nil, err
 		}
 		// pass in object as os.Args[1]
-		mod, err := r.InstantiateModule(ctx, code, config.WithArgs("gatekeeper", string(gkr.Object.Raw), "")) //add parameter later
+		mod, err := r.InstantiateModule(ctx, code, config.WithArgs("gatekeeper", string(gkr.Object.Raw), fmt.Sprintf("%v", params))) //add parameter later
 		if err != nil {
 			return nil, nil, err
 		}
