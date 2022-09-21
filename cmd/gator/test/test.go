@@ -107,7 +107,7 @@ func run(cmd *cobra.Command, args []string) {
 	default:
 		if len(results) > 0 {
 			for _, result := range results {
-				fmt.Printf("Message: %q", result.Msg)
+				fmt.Printf("Message: %q\n", result.Msg)
 			}
 		}
 	}

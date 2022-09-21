@@ -51,6 +51,7 @@ import (
 	"github.com/open-policy-agent/gatekeeper/pkg/upgrade"
 	"github.com/open-policy-agent/gatekeeper/pkg/util"
 	"github.com/open-policy-agent/gatekeeper/pkg/version"
+	"github.com/open-policy-agent/gatekeeper/pkg/wasm"
 	"github.com/open-policy-agent/gatekeeper/pkg/watch"
 	"github.com/open-policy-agent/gatekeeper/pkg/webhook"
 	"github.com/open-policy-agent/gatekeeper/third_party/sigs.k8s.io/controller-runtime/pkg/dynamiccache"
@@ -304,12 +305,9 @@ func setupControllers(mgr ctrl.Manager, sw *watch.ControllerSwitch, tracker *rea
 		// register the client cert watcher to the mutation system
 		mutationOpts.ClientCertWatcher = certWatcher
 	}
-	// initialize OPA
-	driver, err := local.New(args...)
-	if err != nil {
-		setupLog.Error(err, "unable to set up Driver")
-		os.Exit(1)
-	}
+	// initialize driver
+	/// TODO: support multiple drivers
+	driver := wasm.NewDriver()
 
 	client, err := constraintclient.NewClient(constraintclient.Targets(&target.K8sValidationTarget{}), constraintclient.Driver(driver))
 	if err != nil {

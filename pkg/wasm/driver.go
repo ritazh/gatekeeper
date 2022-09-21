@@ -3,7 +3,6 @@ package wasm
 import (
 	"bytes"
 	"context"
-	_ "embed"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -33,19 +32,19 @@ type Driver struct {
 }
 
 type WasmDecision struct {
-	Decision []byte
-	Name     string
+	Decision   []byte
+	Name       string
+	Constraint *unstructured.Unstructured
 }
 
 var _ drivers.Driver = &Driver{}
 
 func (d *Driver) AddTemplate(ctx context.Context, ct *templates.ConstraintTemplate) error {
-
 	if len(ct.Spec.Targets) == 0 {
 		return nil
 	}
-
-	wasmCodeBase64 := ct.Spec.Targets[0].Rego //Wasm
+	/// TODO: another option is to pull from OCI registry
+	wasmCodeBase64 := ct.Spec.Targets[0].Rego // Wasm
 
 	if wasmCodeBase64 == "" {
 		return fmt.Errorf("wasm code is empty for template: %q", ct.Name)
@@ -89,12 +88,12 @@ func (d *Driver) RemoveData(ctx context.Context, target string, path storage.Pat
 }
 
 func (d *Driver) Query(ctx context.Context, target string, constraints []*unstructured.Unstructured, review interface{}, opts ...drivers.QueryOpt) ([]*types.Result, *string, error) {
-
 	stdout := bytes.NewBuffer(nil)
 
 	// WebAssembly 2.0 allows use of any version of TinyGo, including 0.24+.
 	// If we don't specify WithWasmCore2, we need WithFeatureBulkMemoryOperations(true).WithFeatureSignExtensionOps(true).WithFeatureNonTrappingFloatToIntConversion(true)
 	c := wazero.NewRuntimeConfig().WithWasmCore2()
+	///TODO: is there a better way to handle this so we dont have to create it for every query
 	r := wazero.NewRuntimeWithConfig(ctx, c)
 	defer r.Close(ctx)
 	// By default, I/O streams are discarded and there's no file system.
@@ -113,26 +112,6 @@ func (d *Driver) Query(ctx context.Context, target string, constraints []*unstru
 		return nil, nil, err
 	}
 
-	wasmModuleName := make(map[string]bool)
-
-	// run all the wasm modules for each constraint
-	var params interface{}
-
-	for _, constraint := range constraints {
-		wasmModuleName[strings.ToLower(constraint.GetKind())] = true
-		/// TODO: we need a tuple of wasmModuleName and matching parameters, this is incorrect
-		/// make(map[string]interface{})
-		params, _, err = unstructured.NestedFieldNoCopy(constraint.Object, "spec", "parameters")
-		if err != nil {
-			return nil, nil, err
-		}
-	}
-
-	paramStr, err := json.Marshal(params)
-	if err != nil {
-		return nil, nil, err
-	}
-
 	gkr := review.(*target2.GkReview)
 
 	obj := &unstructured.Unstructured{
@@ -145,20 +124,31 @@ func (d *Driver) Query(ctx context.Context, target string, constraints []*unstru
 	}
 
 	var allDecisions []*WasmDecision
-	for name := range wasmModuleName {
-		wasmModule, found := d.wasmModules[name]
+	for _, constraint := range constraints {
+		wasmModuleName := strings.ToLower(constraint.GetKind())
+		wasmModule, found := d.wasmModules[wasmModuleName]
 		if !found {
 			continue
 		}
 
-		fmt.Println("Running wasm module", name)
+		paramsStruct, _, err := unstructured.NestedFieldNoCopy(constraint.Object, "spec", "parameters")
+		if err != nil {
+			return nil, nil, err
+		}
+
+		params, err := json.Marshal(paramsStruct)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		fmt.Println("Running wasm module: ", wasmModuleName)
 		moduleBytes := []byte(wasmModule)
 		code, err := r.CompileModule(ctx, moduleBytes, wazero.NewCompileConfig())
 		if err != nil {
 			return nil, nil, err
 		}
 		// pass in object as os.Args[1] and params as os.Args[2]
-		mod, err := r.InstantiateModule(ctx, code, config.WithArgs("gatekeeper", string(gkr.Object.Raw), string(paramStr)))
+		mod, err := r.InstantiateModule(ctx, code, config.WithArgs("gatekeeper", string(gkr.Object.Raw), string(params)))
 		if err != nil {
 			return nil, nil, err
 		}
@@ -166,12 +156,13 @@ func (d *Driver) Query(ctx context.Context, target string, constraints []*unstru
 
 		_, err = modEval.Call(ctx)
 		if err != nil {
-			return nil, nil, fmt.Errorf("error running wasm module %s: %v", name, err)
+			return nil, nil, fmt.Errorf("error running wasm module %s: %v", wasmModuleName, err)
 		}
 		decision := stdout.Bytes()
 		wasmDecision := &WasmDecision{
-			Decision: decision,
-			Name:     name,
+			Decision:   decision,
+			Name:       constraint.GetName(),
+			Constraint: constraint,
 		}
 
 		allDecisions = append(allDecisions, wasmDecision)
@@ -182,13 +173,21 @@ func (d *Driver) Query(ctx context.Context, target string, constraints []*unstru
 
 	results := make([]*types.Result, len(allDecisions))
 	for i, wasmDecision := range allDecisions {
+		enforcementAction, found, err := unstructured.NestedString(wasmDecision.Constraint.Object, "spec", "enforcementAction")
+		if err != nil {
+			return nil, nil, err
+		}
+		if !found {
+			enforcementAction = constraints2.EnforcementActionDeny
+		}
+
 		results[i] = &types.Result{
 			Metadata: map[string]interface{}{
 				"name": wasmDecision.Name,
 			},
-			Constraint:        constraints[0],
+			Constraint:        wasmDecision.Constraint,
 			Msg:               string(wasmDecision.Decision),
-			EnforcementAction: constraints2.EnforcementActionDeny,
+			EnforcementAction: enforcementAction,
 		}
 	}
 

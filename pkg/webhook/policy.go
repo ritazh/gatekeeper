@@ -328,8 +328,9 @@ func (h *validationHandler) validateGatekeeperResources(ctx context.Context, req
 	gvk := req.AdmissionRequest.Kind
 
 	switch {
-	case gvk.Group == "templates.gatekeeper.sh" && gvk.Kind == "ConstraintTemplate":
-		return h.validateTemplate(ctx, req)
+	/// TODO: uncomment this once we support non rego drivers
+	// case gvk.Group == "templates.gatekeeper.sh" && gvk.Kind == "ConstraintTemplate":
+	// 	return h.validateTemplate(ctx, req)
 	case gvk.Group == "constraints.gatekeeper.sh":
 		return h.validateConstraint(req)
 	case gvk.Group == "config.gatekeeper.sh" && gvk.Kind == "Config":
