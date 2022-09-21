@@ -92,9 +92,10 @@ func (d *Driver) Query(ctx context.Context, target string, constraints []*unstru
 
 	stdout := bytes.NewBuffer(nil)
 
+	// WebAssembly 2.0 allows use of any version of TinyGo, including 0.24+.
+	// If we don't specify WithWasmCore2, we need WithFeatureBulkMemoryOperations(true).WithFeatureSignExtensionOps(true).WithFeatureNonTrappingFloatToIntConversion(true)
 	c := wazero.NewRuntimeConfig().WithWasmCore2()
 	r := wazero.NewRuntimeWithConfig(ctx, c)
-	//r := wazero.NewRuntime(ctx)
 	defer r.Close(ctx)
 	// By default, I/O streams are discarded and there's no file system.
 	config := wazero.NewModuleConfig().WithStdout(stdout).WithStderr(os.Stderr)
