@@ -5,6 +5,7 @@ import (
 	"context"
 	_ "embed"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
@@ -91,11 +92,10 @@ func (d *Driver) Query(ctx context.Context, target string, constraints []*unstru
 
 	stdout := bytes.NewBuffer(nil)
 
-	c := wazero.NewRuntimeConfig().
-		WithFeatureBulkMemoryOperations(true).WithFeatureSignExtensionOps(true).WithFeatureNonTrappingFloatToIntConversion(true)
-	// not sure why we need this but got this error: memory.copy invalid as feature "bulk-memory-operations" is disabled
+	// WebAssembly 2.0 allows use of any version of TinyGo, including 0.24+.
+	// If we don't specify WithWasmCore2, we need WithFeatureBulkMemoryOperations(true).WithFeatureSignExtensionOps(true).WithFeatureNonTrappingFloatToIntConversion(true)
+	c := wazero.NewRuntimeConfig().WithWasmCore2()
 	r := wazero.NewRuntimeWithConfig(ctx, c)
-	//r := wazero.NewRuntime(ctx)
 	defer r.Close(ctx)
 	// By default, I/O streams are discarded and there's no file system.
 	config := wazero.NewModuleConfig().WithStdout(stdout).WithStderr(os.Stderr)
@@ -128,6 +128,11 @@ func (d *Driver) Query(ctx context.Context, target string, constraints []*unstru
 		}
 	}
 
+	paramStr, err := json.Marshal(params)
+	if err != nil {
+		return nil, nil, err
+	}
+
 	gkr := review.(*target2.GkReview)
 
 	obj := &unstructured.Unstructured{
@@ -152,8 +157,8 @@ func (d *Driver) Query(ctx context.Context, target string, constraints []*unstru
 		if err != nil {
 			return nil, nil, err
 		}
-		// pass in object as os.Args[1] and parameters as os.Args[2]
-		mod, err := r.InstantiateModule(ctx, code, config.WithArgs("gatekeeper", string(gkr.Object.Raw), fmt.Sprintf("%v", params)))
+		// pass in object as os.Args[1] and params as os.Args[2]
+		mod, err := r.InstantiateModule(ctx, code, config.WithArgs("gatekeeper", string(gkr.Object.Raw), string(paramStr)))
 		if err != nil {
 			return nil, nil, err
 		}
