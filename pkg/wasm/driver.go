@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	_ "embed"
+	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
@@ -90,8 +91,7 @@ func (d *Driver) Query(ctx context.Context, target string, constraints []*unstru
 
 	stdout := bytes.NewBuffer(nil)
 
-	c := wazero.NewRuntimeConfig().
-		WithFeatureBulkMemoryOperations(true).WithFeatureSignExtensionOps(true) // not sure why we need this but got this error: memory.copy invalid as feature "bulk-memory-operations" is disabled
+	c := wazero.NewRuntimeConfig().WithWasmCore2()
 	r := wazero.NewRuntimeWithConfig(ctx, c)
 	//r := wazero.NewRuntime(ctx)
 	defer r.Close(ctx)
@@ -123,6 +123,11 @@ func (d *Driver) Query(ctx context.Context, target string, constraints []*unstru
 		}
 	}
 
+	paramStr, err := json.Marshal(params)
+	if err != nil {
+		return nil, nil, err
+	}
+
 	gkr := review.(*target2.GkReview)
 
 	obj := &unstructured.Unstructured{
@@ -150,8 +155,8 @@ func (d *Driver) Query(ctx context.Context, target string, constraints []*unstru
 		if err != nil {
 			return nil, nil, err
 		}
-		// pass in object as os.Args[1]
-		mod, err := r.InstantiateModule(ctx, code, config.WithArgs("gatekeeper", string(gkr.Object.Raw), fmt.Sprintf("%v", params)))
+		// pass in object as os.Args[1] and params as os.Args[2]
+		mod, err := r.InstantiateModule(ctx, code, config.WithArgs("gatekeeper", string(gkr.Object.Raw), string(paramStr)))
 		if err != nil {
 			return nil, nil, err
 		}
