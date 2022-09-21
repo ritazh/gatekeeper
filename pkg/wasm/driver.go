@@ -20,8 +20,8 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-//go:embed greet.wasm
-var greetWasm []byte
+//go:embed policy.wasm
+var policyWasm []byte
 
 func NewDriver() *Driver {
 	return &Driver{
@@ -53,7 +53,7 @@ func (d *Driver) AddTemplate(ctx context.Context, ct *templates.ConstraintTempla
 	}
 	/// TODO: let's pretend this is just a string for now
 	/// TODO: mutax
-	d.wasmModules[ct.Name] = string(greetWasm) // wasmCode
+	d.wasmModules[ct.Name] = string(policyWasm) // wasmCode
 	return nil
 }
 
@@ -151,12 +151,11 @@ func (d *Driver) Query(ctx context.Context, target string, constraints []*unstru
 			return nil, nil, err
 		}
 		// pass in object as os.Args[1]
-		mod, err := r.InstantiateModule(ctx, code, config.WithArgs("gatekeeper", string(gkr.Object.Raw), fmt.Sprintf("%v", params))) //add parameter later
+		mod, err := r.InstantiateModule(ctx, code, config.WithArgs("gatekeeper", string(gkr.Object.Raw), fmt.Sprintf("%v", params)))
 		if err != nil {
 			return nil, nil, err
 		}
-		///TODO: change to eval later
-		modEval := mod.ExportedFunction("greet")
+		modEval := mod.ExportedFunction("eval")
 
 		_, err = modEval.Call(ctx)
 		if err != nil {
