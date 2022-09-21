@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 
 	constraints2 "github.com/open-policy-agent/frameworks/constraint/pkg/apis/constraints"
@@ -159,13 +160,19 @@ func (d *Driver) Query(ctx context.Context, target string, constraints []*unstru
 			return nil, nil, fmt.Errorf("error running wasm module %s: %v", wasmModuleName, err)
 		}
 		decision := stdout.Bytes()
-		wasmDecision := &WasmDecision{
-			Decision:   decision,
-			Name:       constraint.GetName(),
-			Constraint: constraint,
+		decisionBool, err := strconv.ParseBool(string(decision))
+		if err != nil {
+			return nil, nil, err
 		}
+		if !decisionBool {
+			wasmDecision := &WasmDecision{
+				Decision:   decision,
+				Name:       constraint.GetName(),
+				Constraint: constraint,
+			}
 
-		allDecisions = append(allDecisions, wasmDecision)
+			allDecisions = append(allDecisions, wasmDecision)
+		}
 	}
 	if len(allDecisions) == 0 {
 		return nil, nil, nil
