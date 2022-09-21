@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	_ "embed"
+	"encoding/base64"
 	"fmt"
 	"os"
 	"strings"
@@ -19,9 +20,6 @@ import (
 	"github.com/tetratelabs/wazero/imports/wasi_snapshot_preview1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
-
-//go:embed greet.wasm
-var greetWasm []byte
 
 func NewDriver() *Driver {
 	return &Driver{
@@ -46,14 +44,17 @@ func (d *Driver) AddTemplate(ctx context.Context, ct *templates.ConstraintTempla
 		return nil
 	}
 
-	wasmCode := ct.Spec.Targets[0].Rego //Wasm
+	wasmCodeBase64 := ct.Spec.Targets[0].Rego //Wasm
 
-	if wasmCode == "" {
-		return nil
+	if wasmCodeBase64 == "" {
+		return fmt.Errorf("wasm code is empty for template: %q", ct.Name)
 	}
-	/// TODO: let's pretend this is just a string for now
 	/// TODO: mutax
-	d.wasmModules[ct.Name] = string(greetWasm) // wasmCode
+	wasmCode, err := base64.StdEncoding.DecodeString(wasmCodeBase64)
+	if err != nil {
+		return err
+	}
+	d.wasmModules[ct.Name] = string(wasmCode)
 	return nil
 }
 
@@ -113,11 +114,14 @@ func (d *Driver) Query(ctx context.Context, target string, constraints []*unstru
 	}
 
 	wasmModuleName := make(map[string]bool)
-	// only run the constraints with wasm modules
+
+	// run all the wasm modules for each constraint
 	var params interface{}
+
 	for _, constraint := range constraints {
 		wasmModuleName[strings.ToLower(constraint.GetKind())] = true
-
+		/// TODO: we need a tuple of wasmModuleName and matching parameters, this is incorrect
+		/// make(map[string]interface{})
 		params, _, err = unstructured.NestedFieldNoCopy(constraint.Object, "spec", "parameters")
 		if err != nil {
 			return nil, nil, err
@@ -134,10 +138,7 @@ func (d *Driver) Query(ctx context.Context, target string, constraints []*unstru
 	if err != nil {
 		return nil, nil, err
 	}
-	///TODO: resource
-	// resource := map[string]interface{}{
-	// 	"resource": obj.Object,
-	// }
+
 	var allDecisions []*WasmDecision
 	for name := range wasmModuleName {
 		wasmModule, found := d.wasmModules[name]
@@ -151,13 +152,12 @@ func (d *Driver) Query(ctx context.Context, target string, constraints []*unstru
 		if err != nil {
 			return nil, nil, err
 		}
-		// pass in object as os.Args[1]
-		mod, err := r.InstantiateModule(ctx, code, config.WithArgs("gatekeeper", string(gkr.Object.Raw), fmt.Sprintf("%v", params))) //add parameter later
+		// pass in object as os.Args[1] and parameters as os.Args[2]
+		mod, err := r.InstantiateModule(ctx, code, config.WithArgs("gatekeeper", string(gkr.Object.Raw), fmt.Sprintf("%v", params)))
 		if err != nil {
 			return nil, nil, err
 		}
-		///TODO: change to eval later
-		modEval := mod.ExportedFunction("greet")
+		modEval := mod.ExportedFunction("eval")
 
 		_, err = modEval.Call(ctx)
 		if err != nil {
