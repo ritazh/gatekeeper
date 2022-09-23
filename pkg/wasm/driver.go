@@ -160,7 +160,7 @@ func (d *Driver) Query(ctx context.Context, target string, constraints []*unstru
 			return nil, nil, fmt.Errorf("error running wasm module %s: %v", wasmModuleName, err)
 		}
 		decision := stdout.Bytes()
-		decisionBool, err := strconv.ParseBool(string(decision))
+		decisionBool, err := strconv.ParseBool(strings.TrimSpace(string(decision)))
 		if err != nil {
 			return nil, nil, err
 		}

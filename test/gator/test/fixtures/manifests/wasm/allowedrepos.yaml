@@ -23,7 +23,9 @@ apiVersion: templates.gatekeeper.sh/v1
 kind: ConstraintTemplate
 metadata:
   name: k8sallowedrepos
-  description: >-
+  annotations:
+    metadata.gatekeeper.sh/title: "Allowed Repositories"
+    description: >-
       Requires container images to begin with a string from the specified list.
 spec:
   crd:
@@ -34,7 +36,7 @@ spec:
         openAPIV3Schema:
           type: object
           properties:
-            test:
+            imagePrefix:
               description: "The list of prefixes a container image is allowed to have."
               type: array
               items:
